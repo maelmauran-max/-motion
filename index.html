@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Émotions du Monde | Expérience Immersive</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        :root {
+            --bg: #04020f;
+            --primary: #00d4ff;
+            --secondary: #ff2f92;
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+            --text: #ffffff;
+        }
+
+        body.light-mode {
+            --bg: #f0f2f5;
+            --text: #1a1a1a;
+            --glass: rgba(0, 0, 0, 0.05);
+            --border: rgba(0, 0, 0, 0.1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; scroll-behavior: smooth; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow-x: hidden;
+            transition: background 0.5s, color 0.5s;
+        }
+
+        /* --- SYSTÈME SPATIAL --- */
+        #particles-js {
+            position: fixed;
+            inset: 0;
+            z-index: -2; /* Tout au fond */
+        }
+
+        .spatial-object {
+            position: fixed;
+            pointer-events: none;
+            z-index: -1; /* Entre les étoiles et le texte */
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.2));
+        }
+
+        .shooting-star {
+            width: 150px;
+            height: 2px;
+            background: linear-gradient(90deg, white, transparent);
+            border-radius: 100%;
+            opacity: 0.8;
+        }
+
+        .planet-realistic {
+            border-radius: 50%;
+            box-shadow: inset -15px -15px 30px rgba(0,0,0,0.9), 0 0 20px rgba(255,255,255,0.1);
+        }
+
+        /* --- NAVIGATION --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 5%;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            position: fixed;
+            width: 100%;
+            top: 0; 
+            z-index: 9999;
+            border-bottom: 1px solid var(--border);
+            background: rgba(4, 2, 15, 0.7);
+        }
+
+        .nav-links a {
+            color: var(--text);
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: 600;
+            transition: 0.3s;
+        }
+
+        .nav-links a:hover { color: var(--primary); }
+
+        /* --- CONTENU --- */
+        .container { max-width: 1000px; margin: 0 auto; padding: 120px 20px 60px; position: relative; z-index: 10; }
+
+        .hero { text-align: center; padding: 80px 0; min-height: 80vh; }
+        
+        h1 { font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 800; line-height: 1.1; }
+        .gradient-text {
+            background: linear-gradient(90deg, #fff, var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .btn {
+            padding: 15px 35px;
+            border-radius: 50px;
+            border: none;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px;
+        }
+
+        .btn-primary { background: var(--primary); color: #000; box-shadow: 0 10px 20px rgba(0, 212, 255, 0.3); }
+        .btn-secondary { background: var(--glass); color: var(--text); border: 1px solid var(--border); }
+        .btn:hover { transform: translateY(-5px) scale(1.05); }
+
+        .thought-box {
+            display: none;
+            margin: 30px auto 0;
+            padding: 20px;
+            max-width: 600px;
+            background: var(--glass);
+            border-radius: 15px;
+            border-left: 4px solid var(--primary);
+            backdrop-filter: blur(10px);
+        }
+
+        .map-container { 
+            height: 550px; 
+            margin: 50px 0; 
+            border-radius: 30px; 
+            overflow: hidden; 
+            border: 1px solid var(--border);
+            position: relative;
+            z-index: 1;
+        }
+        #map { height: 100%; width: 100%; }
+
+        .capsule-card {
+            background: var(--glass);
+            padding: 40px;
+            border-radius: 30px;
+            border: 1px solid var(--border);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        textarea {
+            width: 100%; height: 120px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            color: #fff;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: inherit;
+        }
+
+        .control-btn {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            color: var(--text);
+            width: 42px; height: 42px;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body id="home">
+
+    <div id="particles-js"></div>
+
+    <header>
+        <div class="logo">🌍 ÉMOTIONS</div>
+        <nav class="nav-links">
+            <a href="#home">Explorer</a>
+            <a href="#map-section">Carte</a>
+            <a href="#capsule-section">Capsule</a>
+        </nav>
+        <div>
+            <button class="control-btn" onclick="toggleMusic()">🎵</button>
+            <button class="control-btn" onclick="toggleTheme()">🌓</button>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <h1>L'humanité,<br><span class="gradient-text">unie par l'esprit.</span></h1>
+            <p style="margin: 25px 0; opacity: 0.8; font-size: 1.1rem;">Une expérience sensorielle globale.</p>
+            <div class="btn-group">
+                <a href="#map-section" class="btn btn-primary">📍 Ouvrir la Carte</a>
+                <button class="btn btn-secondary" onclick="generateThought()">✨ Pensée sacrée</button>
+            </div>
+            <div id="thought-display" class="thought-box"></div>
+        </section>
+
+        <section id="map-section">
+            <div class="map-container"><div id="map"></div></div>
+        </section>
+
+        <section id="capsule-section" style="padding-top: 50px;">
+            <div class="capsule-card">
+                <h2>🔒 Capsule Temporelle</h2>
+                <textarea id="capsule-msg" placeholder="Message pour le futur..."></textarea>
+                <input type="date" id="unlock-date" style="padding:10px; width:100%; margin-bottom:20px; border-radius:10px; background:var(--glass); color:white; border:1px solid var(--border);">
+                <button class="btn btn-primary" style="width: 100%;" onclick="sealCapsule()">Sceller mon message</button>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // 1. Particules
+        particlesJS("particles-js", {
+            "particles": {
+                "number": { "value": 80 },
+                "color": { "value": "#00d4ff" },
+                "opacity": { "value": 0.4 },
+                "size": { "value": 2 },
+                "line_linked": { "enable": true, "distance": 150, "color": "#00d4ff", "opacity": 0.1 },
+                "move": { "enable": true, "speed": 1 }
+            },
+            "interactivity": { "events": { "onhover": { "enable": true, "mode": "grab" } } }
+        });
+
+        // 2. Musique et Thème
+        let audio = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
+        function toggleMusic() { audio.paused ? audio.play() : audio.pause(); }
+        function toggleTheme() { document.body.classList.toggle('light-mode'); }
+
+        // 3. Carte
+        const map = L.map('map', { zoomControl: false }).setView([20, 0], 2);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+        map.on('click', function(e) {
+            const emo = prompt("Quelle émotion ?");
+            if(emo) L.circleMarker(e.latlng, {radius: 10, color: '#ff2f92', fillColor: '#ff2f92', fillOpacity: 0.8}).addTo(map).bindPopup(emo).openPopup();
+        });
+
+        // 4. ANIMATION PLANÈTES ET ÉTOILES (Toutes les minutes)
+        const planets = [
+            { color: "radial-gradient(circle at 30% 30%, #ff4d4d, #660000)", size: 60 },
+            { color: "radial-gradient(circle at 30% 30%, #4facfe, #003366)", size: 80 },
+            { color: "radial-gradient(circle at 30% 30%, #f6d365, #8a6d10)", size: 45 }
+        ];
+
+        function spawnSpaceEvent() {
+            const isPlanet = Math.random() > 0.5;
+            const obj = document.createElement('div');
+            obj.className = 'spatial-object';
+            
+            const startY = Math.random() * window.innerHeight;
+            obj.style.top = startY + 'px';
+            obj.style.left = '-200px';
+
+            if (isPlanet) {
+                const p = planets[Math.floor(Math.random() * planets.length)];
+                obj.classList.add('planet-realistic');
+                obj.style.width = p.size + 'px';
+                obj.style.height = p.size + 'px';
+                obj.style.background = p.color;
+                
+                setTimeout(() => {
+                    obj.style.transition = "transform 50s linear";
+                    obj.style.transform = `translate(${window.innerWidth + 400}px, ${Math.random() * 200 - 100}px)`;
+                }, 100);
+            } else {
+                obj.classList.add('shooting-star');
+                obj.style.transform = "rotate(-20deg)";
+                setTimeout(() => {
+                    obj.style.transition = "transform 2s ease-in";
+                    obj.style.transform = `translate(${window.innerWidth + 500}px, 200px) rotate(-20deg)`;
+                }, 100);
+            }
+            document.body.appendChild(obj);
+            setTimeout(() => obj.remove(), 55000);
+        }
+
+        setInterval(spawnSpaceEvent, 60000); // Une fois par minute
+        setTimeout(spawnSpaceEvent, 3000); // Premier lancement rapide
+
+        function generateThought() {
+            const t = ["L'univers est en vous.", "Soyez la lumière.", "Chaque seconde compte."];
+            document.getElementById('thought-display').innerText = t[Math.floor(Math.random()*t.length)];
+            document.getElementById('thought-display').style.display = "block";
+        }
+
+        function sealCapsule() {
+            if(document.getElementById('capsule-msg').value) alert("✨ Scellé !");
+        }
+    </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Émotions du Monde | Expérience Immersive</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { --bg: #04020f; --primary: #00d4ff; --secondary: #ff2f92; --glass: rgba(255, 255, 255, 0.05); --border: rgba(255, 255, 255, 0.1); --text: #ffffff; }
+        body.light-mode { --bg: #f0f2f5; --text: #1a1a1a; --glass: rgba(0, 0, 0, 0.05); --border: rgba(0, 0, 0, 0.1); }
+        * { box-sizing: border-box; margin: 0; padding: 0; scroll-behavior: smooth; }
+        body { background-color: var(--bg); color: var(--text); font-family: 'Plus Jakarta Sans', sans-serif; overflow-x: hidden; transition: background 0.5s, color 0.5s; }
+        #particles-js { position: fixed; inset: 0; z-index: -2; }
+        header { display: flex; justify-content: space-between; align-items: center; padding: 20px 5%; backdrop-filter: blur(15px); position: fixed; width: 100%; top: 0; z-index: 9999; border-bottom: 1px solid var(--border); background: rgba(4, 2, 15, 0.7); }
+        .nav-links a { color: var(--text); text-decoration: none; margin: 0 15px; font-weight: 600; transition: 0.3s; }
+        .nav-links a:hover { color: var(--primary); }
+        .container { max-width: 1000px; margin: 0 auto; padding: 120px 20px 60px; position: relative; z-index: 10; }
+        .hero { text-align: center; padding: 80px 0; min-height: 80vh; }
+        h1 { font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 800; line-height: 1.1; }
+        .gradient-text { background: linear-gradient(90deg, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .btn { padding: 15px 35px; border-radius: 50px; border: none; font-weight: 700; cursor: pointer; transition: 0.3s; text-decoration: none; display: inline-block; margin: 10px; }
+        .btn-primary { background: var(--primary); color: #000; }
+        .btn-secondary { background: var(--glass); color: var(--text); border: 1px solid var(--border); }
+        .map-container { height: 550px; margin: 50px 0; border-radius: 30px; overflow: hidden; border: 1px solid var(--border); }
+        #map { height: 100%; width: 100%; }
+        .control-btn { background: var(--glass); border: 1px solid var(--border); color: var(--text); width: 42px; height: 42px; border-radius: 50%; cursor: pointer; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div id="particles-js"></div>
+    <header>
+        <div class="logo">🌍 ÉMOTIONS</div>
+        <nav class="nav-links">
+            <a href="index.html">Explorer</a>
+            <a href="engagement.html" style="color: var(--primary);">2. Agir & S'engager</a>
+        </nav>
+        <div>
+            <button class="control-btn" onclick="toggleMusic()">🎵</button>
+            <button class="control-btn" onclick="toggleTheme()">🌓</button>
+        </div>
+    </header>
+    <main class="container">
+        <section class="hero">
+            <h1>L'humanité,<br><span class="gradient-text">unie par l'esprit.</span></h1>
+            <p style="margin: 25px 0; opacity: 0.8;">Une expérience sensorielle globale.</p>
+            <div class="btn-group">
+                <a href="#map-section" class="btn btn-primary">📍 Carte</a>
+                <a href="engagement.html" class="btn btn-secondary">🔥 Engagement</a>
+            </div>
+        </section>
+        <section id="map-section">
+            <div class="map-container"><div id="map"></div></div>
+        </section>
+    </main>
+  <
