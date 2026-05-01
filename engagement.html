@@ -3,85 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Station Orbitale | Collecteur d'Impact</title>
+    <title>Station Orbitale Alpha | Simulateur Global</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
     <style>
         :root {
             --primary: #00d4ff;
-            --secondary: #ff2f92;
-            --glass: rgba(4, 2, 15, 0.85);
-            --border: rgba(255, 255, 255, 0.1);
+            --mars: #ff5722;
+            --danger: #ff4444;
+            --glass: rgba(5, 10, 25, 0.9);
         }
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Plus Jakarta Sans', sans-serif; color: white; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Share Tech Mono', monospace; color: white; }
         canvas { display: block; cursor: crosshair; }
         
-        /* Interface */
+        /* --- UI TACTIQUE --- */
         .overlay {
             position: absolute; top: 20px; left: 20px; z-index: 100;
-            background: var(--glass); padding: 25px;
-            border-radius: 24px; width: 320px;
-            backdrop-filter: blur(20px); border: 1px solid var(--border);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            background: var(--glass); padding: 20px;
+            border-radius: 15px; width: 300px;
+            backdrop-filter: blur(15px); border: 1px solid rgba(0, 212, 255, 0.2);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
         }
 
-        /* COMPTEUR DE CLICS */
+        .hud-header { font-size: 1.2rem; border-bottom: 1px solid var(--primary); margin-bottom: 15px; padding-bottom: 5px; color: var(--primary); }
+        
+        .stat-row { display: flex; justify-content: space-between; margin: 8px 0; font-size: 0.8rem; }
+        .bar-container { height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+        #pollution-bar { height: 100%; width: 0%; background: var(--primary); transition: 0.3s; }
+
         .counter-box {
-            background: rgba(0, 212, 255, 0.1);
-            border: 1px solid var(--primary);
-            padding: 15px;
-            border-radius: 15px;
-            text-align: center;
-            margin: 20px 0;
+            background: rgba(0,0,0,0.3); border: 1px dashed var(--primary);
+            padding: 10px; border-radius: 8px; text-align: center; margin: 15px 0;
         }
-        #click-count { font-size: 2rem; font-weight: 800; color: var(--primary); display: block; }
-        .counter-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; }
+        #click-count { font-size: 2rem; font-weight: bold; color: var(--primary); }
 
-        .location-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .btn-ui {
-            background: rgba(255,255,255,0.05); border: 1px solid var(--border);
-            color: white; padding: 12px; border-radius: 12px;
-            font-weight: 600; cursor: pointer; transition: 0.3s;
-            font-size: 0.75rem;
+        /* --- BOUTONS --- */
+        .controls { display: flex; flex-direction: column; gap: 10px; }
+        button {
+            background: rgba(0, 212, 255, 0.1); border: 1px solid var(--primary);
+            color: var(--primary); padding: 10px; border-radius: 5px;
+            cursor: pointer; font-family: inherit; font-size: 0.8rem;
+            transition: all 0.2s;
         }
-        .btn-ui:hover { background: var(--primary); color: #000; }
+        button:hover { background: var(--primary); color: #000; }
+        .btn-exit { background: rgba(255, 68, 68, 0.1); border-color: var(--danger); color: var(--danger); display: none; }
+        .btn-exit:hover { background: var(--danger); color: #000; }
 
-        #log { position: absolute; bottom: 20px; left: 20px; font-family: monospace; font-size: 0.7rem; color: var(--primary); }
-        .back-btn { display: block; margin-top: 20px; text-align: center; color: var(--secondary); text-decoration: none; font-weight: 800; font-size: 0.8rem; }
+        #log { position: absolute; bottom: 20px; left: 20px; font-size: 0.7rem; color: var(--primary); background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
 <div class="overlay">
-    <h1 style="margin:0; font-size: 1.5rem;">Exploration Active</h1>
-    <p style="font-size: 0.8rem; opacity: 0.6;">Cliquez n'importe où sur la Terre pour générer une impulsion d'énergie.</p>
+    <div class="hud-header">SYSTEM CONTROL V4.0</div>
     
+    <div class="stat-row">
+        <span>NOM DE LA CIBLE:</span>
+        <span id="target-name" style="color: var(--primary);">TERRA_01</span>
+    </div>
+    
+    <div class="stat-row">
+        <span>DÉGRADATION:</span>
+        <span id="deg-percent">0%</span>
+    </div>
+    <div class="bar-container"><div id="pollution-bar"></div></div>
+
     <div class="counter-box">
-        <span class="counter-label">Impact Global</span>
-        <span id="click-count">0</span>
+        <div style="font-size: 0.6rem; opacity: 0.7;">IMPACTS COLLECTÉS</div>
+        <div id="click-count">0</div>
     </div>
 
-    <div class="location-grid">
-        <button class="btn-ui" onclick="focusCity(48.8, 2.3, 'Paris')">🗼 Paris</button>
-        <button class="btn-ui" onclick="focusCity(35.6, 139.6, 'Tokyo')">🏮 Tokyo</button>
+    <div class="controls">
+        <button onclick="resetPlanet()">RÉINITIALISER LA PLANÈTE</button>
+        <button onclick="exitSecretMode()" id="btn-exit" class="btn-exit">QUITTER MODE OFFENSIF</button>
     </div>
-
-    <a href="index.html" class="back-btn">RETOUR AU QG</a>
+    
+    <div style="font-size: 0.6rem; margin-top: 15px; opacity: 0.5; text-align: center;">
+        RECO_VOCALE: Taper "magic" pour l'armement
+    </div>
 </div>
 
-<div id="log">SYSTEM_READY...</div>
+<div id="log">> STANDBY_MODE</div>
 
 <script>
     let scene, camera, renderer, globe, clouds, stars, controls, raycaster, mouse;
-    let count = 0;
+    let count = 0, secretMode = false, isExploded = false;
+    let planes = [], fragments = [];
     const loader = new THREE.TextureLoader();
 
     function init() {
         scene = new THREE.Scene();
         camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 10;
+        camera.position.set(0, 8, 20);
 
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -90,122 +105,344 @@
         raycaster = new THREE.Raycaster();
         mouse = new THREE.Vector2();
 
-        // Lumières
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-        const sun = new THREE.DirectionalLight(0xffffff, 1);
-        sun.position.set(5, 3, 5);
+        // Éclairage
+        scene.add(new THREE.AmbientLight(0x404040, 1.5));
+        const sun = new THREE.PointLight(0xffffff, 1.2, 100);
+        sun.position.set(10, 10, 10);
         scene.add(sun);
 
-        // Terre
-        const earthGeo = new THREE.SphereGeometry(3, 64, 64);
-        const earthMat = new THREE.MeshPhongMaterial({
+        // --- GÉNÉRATION TERRE ---
+        const geometry = new THREE.SphereGeometry(4, 64, 64);
+        const material = new THREE.MeshPhongMaterial({
             map: loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg'),
-            shininess: 5
+            color: 0xffffff,
+            shininess: 10
         });
-        globe = new THREE.Mesh(earthGeo, earthMat);
+        globe = new THREE.Mesh(geometry, material);
         scene.add(globe);
 
         // Nuages
         clouds = new THREE.Mesh(
-            new THREE.SphereGeometry(3.05, 64, 64),
+            new THREE.SphereGeometry(4.08, 64, 64),
             new THREE.MeshPhongMaterial({
                 map: loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png'),
-                transparent: true, opacity: 0.4
+                transparent: true, opacity: 0.5
             })
         );
         scene.add(clouds);
 
-        // Étoiles
+        // Etoiles
         const starGeo = new THREE.BufferGeometry();
         const starPos = [];
-        for(let i=0; i<5000; i++) starPos.push((Math.random()-0.5)*1000, (Math.random()-0.5)*1000, (Math.random()-0.5)*1000);
+        for(let i=0; i<4000; i++) starPos.push((Math.random()-0.5)*1000, (Math.random()-0.5)*1000, (Math.random()-0.5)*1000);
         starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
-        stars = new THREE.Points(starGeo, new THREE.PointsMaterial({color: 0x888888, size: 0.5}));
+        stars = new THREE.Points(starGeo, new THREE.PointsMaterial({color: 0xffffff, size: 0.7}));
         scene.add(stars);
 
         controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
 
-        // ÉCOUTEUR DE CLIC
-        window.addEventListener('click', onEarthClick);
+        window.addEventListener('click', onAction);
+        
+        // Code Secret "magic"
+        let inputBuffer = "";
+        window.addEventListener('keydown', (e) => {
+            inputBuffer += e.key.toLowerCase();
+            if (inputBuffer.slice(-5) === "magic") activateSecretMode();
+        });
         
         animate();
     }
 
-    function onEarthClick(event) {
-        // Calcul de la position de la souris
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObject(globe);
-
-        if (intersects.length > 0) {
-            // 1. Incrémenter le compteur
-            count++;
-            document.getElementById('click-count').innerText = count;
-            
-            // 2. Feedback visuel (Onde/Point)
-            const point = intersects[0].point;
-            createPulse(point);
-
-            // 3. Log
-            document.getElementById('log').innerHTML = `ENERGY_COLLECTED: +1 (TOTAL: ${count})`;
-            
-            // Effet flash sur le compteur
-            const cb = document.querySelector('.counter-box');
-            cb.style.background = "rgba(0, 212, 255, 0.4)";
-            setTimeout(() => cb.style.background = "rgba(0, 212, 255, 0.1)", 100);
+    // --- TRANSFORMATION TERRE VERS MARS ---
+    function updatePlanetLogic() {
+        let progress = Math.min(count / 1000000, 1);
+        
+        // Changement de couleur dynamique
+        globe.material.color.setRGB(1, 1 - (progress * 0.75), 1 - (progress * 0.9));
+        clouds.material.opacity = 0.5 * (1 - progress);
+        
+        // Mise à jour UI
+        document.getElementById('pollution-bar').style.width = (progress * 100) + "%";
+        document.getElementById('deg-percent').innerText = Math.round(progress * 100) + "%";
+        
+        if (progress > 0.5) {
+            document.getElementById('target-name').innerText = "MARS_TRANSITION";
+            document.getElementById('target-name').style.color = "var(--mars)";
+            document.getElementById('pollution-bar').style.background = "var(--mars)";
         }
     }
 
-    function createPulse(position) {
-        const pulseGeo = new THREE.SphereGeometry(0.05, 16, 16);
-        const pulseMat = new THREE.MeshBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 1 });
-        const pulse = new THREE.Mesh(pulseGeo, pulseMat);
+    // --- MODE SECRET : AIRSTRIKE ---
+    function activateSecretMode() {
+        if(secretMode) return;
+        secretMode = true;
+        scene.remove(globe);
+        scene.remove(clouds);
         
-        pulse.position.copy(position);
-        scene.add(pulse);
+        createTower(-3.5);
+        createTower(3.5);
 
-        // Animation de l'onde
-        let scale = 1;
-        const interval = setInterval(() => {
-            scale += 0.1;
-            pulse.scale.set(scale, scale, scale);
-            pulse.material.opacity -= 0.05;
-            if (pulse.material.opacity <= 0) {
-                clearInterval(interval);
-                scene.remove(pulse);
-            }
-        }, 20);
+        document.getElementById('hud-box').style.borderColor = "var(--danger)";
+        document.getElementById('btn-exit').style.display = "block";
+        document.getElementById('target-name').innerText = "OFFENSIVE_ZONE";
+        document.getElementById('log').innerHTML = "> PROTOCOLE_AIRSTRIKE_ACTIF";
     }
 
-    window.focusCity = function(lat, lon, name) {
-        const phi = (90 - lat) * (Math.PI / 180);
-        const theta = (lon + 180) * (Math.PI / 180);
-        const dist = 7;
-        camera.position.x = dist * Math.sin(phi) * Math.cos(theta);
-        camera.position.y = dist * Math.cos(phi);
-        camera.position.z = dist * Math.sin(phi) * Math.sin(theta);
-        controls.update();
-        document.getElementById('log').innerHTML = `NAVIGATING_TO: ${name.toUpperCase()}`;
+    function createTower(x) {
+        const segments = 12; 
+        for(let i=0; i<segments; i++) {
+            const piece = new THREE.Mesh(
+                new THREE.BoxGeometry(2, 1, 2),
+                new THREE.MeshPhongMaterial({ color: 0x444444, shininess: 50 })
+            );
+            piece.position.set(x, (i * 1.1) - 5, 0);
+            piece.userData = { 
+                originalPos: piece.position.clone(), 
+                velocity: new THREE.Vector3(),
+                isFragment: true 
+            };
+            scene.add(piece);
+            fragments.push(piece);
+        }
+    }
+
+    function triggerExplosion() {
+        if(isExploded) return;
+        isExploded = true;
+        
+        fragments.forEach(f => {
+            f.userData.velocity.set((Math.random()-0.5)*0.6, Math.random()*0.5, (Math.random()-0.5)*0.6);
+        });
+
+        document.getElementById('log').innerHTML = "> IMPACT_CONFIRMÉ : STRUCTURE_DÉTRUITE";
+        
+        setTimeout(() => {
+            isExploded = false;
+            fragments.forEach(f => {
+                f.position.copy(f.userData.originalPos);
+                f.rotation.set(0, 0, 0);
+                f.userData.velocity.set(0, 0, 0);
+            });
+            document.getElementById('log').innerHTML = "> STRUCTURE_RECONSTRUITE";
+        }, 4000);
+    }
+
+    // --- FONCTIONS DE RETOUR ---
+    window.resetPlanet = function() {
+        count = 0;
+        document.getElementById('click-count').innerText = "0";
+        document.getElementById('pollution-bar').style.width = "0%";
+        document.getElementById('deg-percent').innerText = "0%";
+        document.getElementById('target-name').innerText = "TERRA_01";
+        document.getElementById('target-name').style.color = "var(--primary)";
+        document.getElementById('pollution-bar').style.background = "var(--primary)";
+        
+        globe.material.color.setRGB(1, 1, 1);
+        clouds.material.opacity = 0.5;
+        document.getElementById('log').innerHTML = "> RÉINITIALISATION_TERMINÉE";
+    }
+
+    window.exitSecretMode = function() {
+        secretMode = false;
+        fragments.forEach(f => scene.remove(f));
+        fragments = [];
+        planes.forEach(p => scene.remove(p));
+        planes = [];
+
+        scene.add(globe);
+        scene.add(clouds);
+        
+        document.getElementById('btn-exit').style.display = "none";
+        document.getElementById('hud-box').style.borderColor = "var(--primary)";
+        document.getElementById('target-name').innerText = "TERRA_01";
+        document.getElementById('log').innerHTML = "> RETOUR_SUR_ORBITE";
+    }
+
+    function spawnPlane() {
+        const p = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 4), new THREE.MeshPhongMaterial({color: 0xcccccc}));
+        const wing = new THREE.Mesh(new THREE.BoxGeometry(5, 0.1, 1.5), new THREE.MeshPhongMaterial({color: 0x999999}));
+        p.add(body, wing);
+        p.position.set((Math.random()-0.5)*5, Math.random()*3, -30);
+        scene.add(p);
+        planes.push(p);
+    }
+
+    function onAction(e) {
+        if (secretMode) {
+            spawnPlane();
+            count += 1;
+        } else {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            if (raycaster.intersectObject(globe).length > 0) {
+                count++;
+                updatePlanetLogic();
+            }
+        }
+        document.getElementById('click-count').innerText = count;
     }
 
     function animate() {
         requestAnimationFrame(animate);
-        globe.rotation.y += 0.001;
-        clouds.rotation.y += 0.0012;
+        
+        if (!secretMode) {
+            globe.rotation.y += 0.002;
+            clouds.rotation.y += 0.0025;
+        } else {
+            planes.forEach((p, i) => {
+                p.position.z += 0.5;
+                if(p.position.z >= -1 && p.position.z <= 1) triggerExplosion();
+                if(p.position.z > 20) { scene.remove(p); planes.splice(i, 1); }
+            });
+            if(isExploded) {
+                fragments.forEach(f => {
+                    f.position.add(f.userData.velocity);
+                    f.rotation.x += 0.07;
+                    f.userData.velocity.y -= 0.012;
+                });
+            }
+        }
         controls.update();
         renderer.render(scene, camera);
     }
-
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
 
     init();
 </script>
 </body>
 </html>
+<style></style>
+<style>
+    /* Voile de chargement / Transition spatiale */
+    #space-loader {
+        position: fixed;
+        inset: 0;
+        background: #04020f;
+        z-index: 10000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: opacity 1s ease-out, visibility 1s;
+    }
+
+    .hyper-jump-line {
+        position: absolute;
+        background: linear-gradient(to right, transparent, var(--primary), white);
+        height: 2px;
+        width: 100px;
+        opacity: 0;
+        animation: launch 0.8s ease-in forwards;
+    }
+
+    @keyframes launch {
+        0% { transform: scaleX(0.1) translateX(-200%); opacity: 0; }
+        50% { opacity: 1; }
+        100% { transform: scaleX(5) translateX(500%); opacity: 0; }
+    }
+
+    /* Animation du texte d'accueil */
+    .hero h1, .hero p, .btn-group {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: all 1s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .content-visible h1, 
+    .content-visible p, 
+    .content-visible .btn-group {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* Décalage pour l'effet d'apparition fluide */
+    .content-visible p { transition-delay: 0.3s; }
+    .content-visible .btn-group { transition-delay: 0.6s; }
+</style>
+
+<div id="space-loader">
+    <div id="stars-container"></div>
+    <h2 id="loader-text" style="color: white; font-weight: 800; letter-spacing: 5px; z-index: 10001;">INITIALISATION...</h2>
+</div>
+
+<script>
+    window.addEventListener('load', () => {
+        const loader = document.getElementById('space-loader');
+        const starsContainer = document.getElementById('stars-container');
+        
+        // Création de 20 lignes de "vitesse lumière" aléatoires
+        for(let i=0; i<20; i++) {
+            let line = document.createElement('div');
+            line.className = 'hyper-jump-line';
+            line.style.top = Math.random() * 100 + '%';
+            line.style.left = '10%';
+            line.style.animationDelay = (Math.random() * 0.5) + 's';
+            starsContainer.appendChild(line);
+        }
+
+        // Séquence d'effacement du loader
+        setTimeout(() => {
+            document.getElementById('loader-text').innerText = "VITESSE LUMIÈRE";
+            document.getElementById('loader-text').style.transform = "scale(1.5)";
+            document.getElementById('loader-text').style.opacity = "0";
+            document.getElementById('loader-text').style.transition = "1s";
+        }, 1200);
+
+        setTimeout(() => {
+            loader.style.opacity = '0';
+            loader.style.visibility = 'hidden';
+            // Déclenche l'apparition du contenu du site
+            document.querySelector('.hero').classList.add('content-visible');
+        }, 2000);
+    });
+
+    // Effet de parallaxe léger sur le titre au mouvement de la souris
+    document.addEventListener('mousemove', (e) => {
+        const x = (window.innerWidth / 2 - e.pageX) / 50;
+        const y = (window.innerHeight / 2 - e.pageY) / 50;
+        const heroTitle = document.querySelector('h1');
+        if(heroTitle) {
+            heroTitle.style.transform = `translateX(${x}px) translateY(${y}px)`;
+        }
+    });
+</script>// <style>
+    .btn-back-home {
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        z-index: 1000;
+        background: rgba(0, 212, 255, 0.1);
+        border: 1px solid var(--primary);
+        color: var(--primary);
+        padding: 12px 20px;
+        border-radius: 50px;
+        font-family: 'Share Tech Mono', monospace;
+        text-decoration: none;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+    }
+
+    .btn-back-home:hover {
+        background: var(--primary);
+        color: #000;
+        transform: translateY(-5px) scale(1.05);
+        box-shadow: 0 0 25px var(--primary);
+    }
+
+    .btn-back-home svg {
+        fill: currentColor;
+    }
+</style>
+
+<a href="index.html" class="btn-back-home">
+    <svg width="20" height="20" viewBox="0 0 24 24">
+        <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+    </svg>
+    RETOUR ORBITE (HOME)
+</a>
